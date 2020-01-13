@@ -5,6 +5,7 @@ import (
   "testing"
   "errors"
   "net"
+  "time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
@@ -21,6 +22,14 @@ type DummyRoute53Client struct {
   listResourceRecordSetsInput *route53.ListResourceRecordSetsInput
   listResourceRecordSetsOutput *route53.ListResourceRecordSetsOutput
   listResourceRecordSetsError error
+
+  ChangeResourceRecordSetsInput *route53.ChangeResourceRecordSetsInput
+  ChangeResourceRecordSetsOutput *route53.ChangeResourceRecordSetsOutput
+  ChangeResourceRecordSetsError error
+
+  GetChangeInput *route53.GetChangeInput
+
+  WaitUntilResourceRecordSetsChangedError error
 }
 
 func (c DummyRoute53Client) ListHostedZonesByName(input *route53.ListHostedZonesByNameInput) (*route53.ListHostedZonesByNameOutput, error) {
@@ -39,8 +48,40 @@ func (c DummyRoute53Client) ListResourceRecordSets(input *route53.ListResourceRe
   if expectedInput != actualInput {
     c.t.Errorf("unexpected input: expected %v, actual %v", expectedInput, actualInput)
   }
+  validateError := input.Validate()
+  if validateError != nil {
+    c.t.Errorf("validate error: %s", validateError.Error())
+  }
 
   return c.listResourceRecordSetsOutput, c.listHostedZonesByNameError
+}
+
+func (c DummyRoute53Client) ChangeResourceRecordSets(input *route53.ChangeResourceRecordSetsInput) (*route53.ChangeResourceRecordSetsOutput, error) {
+  expectedInput := awsutil.StringValue(c.ChangeResourceRecordSetsInput)
+  actualInput := awsutil.StringValue(input)
+  if expectedInput != actualInput {
+    c.t.Errorf("unexpected input: expected %v, actual %v", expectedInput, actualInput)
+  }
+  validateError := input.Validate()
+  if validateError != nil {
+    c.t.Errorf("validate error: %s", validateError.Error())
+  }
+
+  return c.ChangeResourceRecordSetsOutput, c.ChangeResourceRecordSetsError
+}
+
+func (c DummyRoute53Client) WaitUntilResourceRecordSetsChanged(input *route53.GetChangeInput) error {
+  expectedInput := awsutil.StringValue(c.GetChangeInput)
+  actualInput := awsutil.StringValue(input)
+  if expectedInput != actualInput {
+    c.t.Errorf("unexpected input: expected %v, actual %v", expectedInput, actualInput)
+  }
+  validateError := input.Validate()
+  if validateError != nil {
+    c.t.Errorf("validate error: %v", validateError.Error())
+  }
+
+  return c.WaitUntilResourceRecordSetsChangedError
 }
 
 func TestGetHostedZoneID(t *testing.T) {
@@ -212,6 +253,422 @@ func TestGetReverseHostedZoneID(t *testing.T) {
       t.Errorf("unexpected error(%d): expected error %v, actual error %v", idx, p.expectedError, err)
     } else if actual != p.expectedZoneID {
       t.Errorf("unexpected HostedZone ID(%d): expected %s, actual %s", idx, p.expectedZoneID, actual)
+    }
+  }
+}
+
+func TestCreateAResourceRecordSet(t *testing.T) {
+  patterns := []struct{
+    ip net.IP
+    hostname string
+    hostedZoneID string
+
+    expectedError error
+  }{
+    {
+      ip: net.ParseIP("10.0.5.10"),
+      hostname: "host.example.com",
+      hostedZoneID: "ABC123",
+      expectedError: nil,
+    },
+  }
+
+  for idx, p := range patterns {
+    awsClient := &AWSClientImpl{
+      r53: &DummyRoute53Client{
+        t: t,
+
+        ChangeResourceRecordSetsInput: &route53.ChangeResourceRecordSetsInput{
+          HostedZoneId: aws.String(p.hostedZoneID),
+          ChangeBatch: &route53.ChangeBatch{
+            Changes: []*route53.Change{
+              {
+                Action: aws.String(route53.ChangeActionCreate),
+                ResourceRecordSet: &route53.ResourceRecordSet{
+                  Name: aws.String(p.hostname),
+                  ResourceRecords: []*route53.ResourceRecord{
+                    {
+                      Value: aws.String(p.ip.String()),
+                    },
+                  },
+                  TTL:  aws.Int64(600),
+                  Type: aws.String("A"),
+                },
+              },
+            },
+          },
+        },
+        ChangeResourceRecordSetsOutput: &route53.ChangeResourceRecordSetsOutput{
+          ChangeInfo: &route53.ChangeInfo{
+            Comment: aws.String("dummy comment"),
+            Id: aws.String("XYZ789"),
+            Status: aws.String(route53.ChangeStatusInsync),
+            SubmittedAt: aws.Time(time.Date(2020, 1, 13, 0, 0, 0, 0, time.UTC)),
+          },
+        },
+        ChangeResourceRecordSetsError: nil,
+
+        GetChangeInput: &route53.GetChangeInput{
+          Id: aws.String("XYZ789"),
+        },
+      },
+    }
+    err := awsClient.createAResourceRecordSet(p.ip, p.hostname, p.hostedZoneID)
+    if err != nil && err.Error() != p.expectedError.Error() {
+      t.Errorf("unexpected error (%d): expected error %v, actual error %v", idx, p.expectedError, err)
+    }
+  }
+}
+
+func TestDeleteAResourceRecordSet(t *testing.T) {
+  patterns := []struct{
+    ip net.IP
+    hostname string
+    hostedZoneID string
+
+    expectedError error
+  }{
+    {
+      ip: net.ParseIP("10.0.5.10"),
+      hostname: "host.example.com",
+      hostedZoneID: "ABC123",
+      expectedError: nil,
+    },
+  }
+
+  for idx, p := range patterns {
+    awsClient := &AWSClientImpl{
+      r53: &DummyRoute53Client{
+        t: t,
+
+        ChangeResourceRecordSetsInput: &route53.ChangeResourceRecordSetsInput{
+          HostedZoneId: aws.String(p.hostedZoneID),
+          ChangeBatch: &route53.ChangeBatch{
+            Changes: []*route53.Change{
+              {
+                Action: aws.String(route53.ChangeActionDelete),
+                ResourceRecordSet: &route53.ResourceRecordSet{
+                  Name: aws.String(p.hostname),
+                  ResourceRecords: []*route53.ResourceRecord{
+                    {
+                      Value: aws.String(p.ip.String()),
+                    },
+                  },
+                  TTL:  aws.Int64(600),
+                  Type: aws.String("A"),
+                },
+              },
+            },
+          },
+        },
+        ChangeResourceRecordSetsOutput: &route53.ChangeResourceRecordSetsOutput{
+          ChangeInfo: &route53.ChangeInfo{
+            Comment: aws.String("dummy comment"),
+            Id: aws.String("XYZ789"),
+            Status: aws.String(route53.ChangeStatusInsync),
+            SubmittedAt: aws.Time(time.Date(2020, 1, 13, 0, 0, 0, 0, time.UTC)),
+          },
+        },
+        ChangeResourceRecordSetsError: nil,
+
+        GetChangeInput: &route53.GetChangeInput{
+          Id: aws.String("XYZ789"),
+        },
+      },
+    }
+    err := awsClient.deleteAResourceRecordSet(p.ip, p.hostname, p.hostedZoneID)
+    if err != nil && err.Error() != p.expectedError.Error() {
+      t.Errorf("unexpected error (%d): expected error %v, actual error %v", idx, p.expectedError, err)
+    }
+  }
+}
+
+func TestCreatePtrResourceRecordSet(t *testing.T) {
+  var rInfos ReverseHostedZoneInfos
+  rInfos = []ReverseHostedZoneInfo{
+    {
+      Network: &net.IPNet{
+        IP: net.IPv4(10,0,0,0),
+        Mask: net.IPv4Mask(255,0,0,0),
+      },
+      NetworkCIDR: "10.0.0.0/8",
+      HostedZoneID: "ABC123",
+      HostedZoneName: "10.in-addr.arpa.",
+    },
+    {
+      Network: &net.IPNet{
+        IP: net.ParseIP("192.168.0.0"),
+        Mask: net.IPv4Mask(255,255,0,0),
+      },
+      NetworkCIDR: "192.168.0.0/16",
+      HostedZoneID: "EFG456",
+      HostedZoneName: "10.in-addr.arpa.",
+    },
+  }
+  patterns := []struct{
+    ip net.IP
+    hostname string
+    hostedZoneID string
+
+    expectedError error
+  }{
+    {
+      ip: net.ParseIP("10.0.5.10"),
+      hostname: "host.example.com",
+      expectedError: nil,
+    },
+  }
+  for idx, p := range patterns {
+    awsClient := &AWSClientImpl{
+      r53: &DummyRoute53Client{
+        t: t,
+
+        ChangeResourceRecordSetsInput: &route53.ChangeResourceRecordSetsInput{
+          HostedZoneId: aws.String("ABC123"),
+          ChangeBatch: &route53.ChangeBatch{
+            Changes: []*route53.Change{
+              {
+                Action: aws.String(route53.ChangeActionCreate),
+                ResourceRecordSet: &route53.ResourceRecordSet{
+                  Name: aws.String("10.5.0.10.in-addr.arpa."),
+                  ResourceRecords: []*route53.ResourceRecord{
+                    {
+                      Value: aws.String(p.hostname),
+                    },
+                  },
+                  TTL: aws.Int64(600),
+                  Type: aws.String("PTR"),
+                },
+              },
+            },
+          },
+        },
+        ChangeResourceRecordSetsOutput: &route53.ChangeResourceRecordSetsOutput{
+           ChangeInfo: &route53.ChangeInfo{
+            Comment: aws.String("dummy comment"),
+            Id: aws.String("XYZ789"),
+            Status: aws.String(route53.ChangeStatusInsync),
+            SubmittedAt: aws.Time(time.Date(2020, 1, 13, 0, 0, 0, 0, time.UTC)),
+          },
+        },
+        ChangeResourceRecordSetsError: nil,
+
+        GetChangeInput: &route53.GetChangeInput{
+          Id: aws.String("XYZ789"),
+        },
+      },
+    }
+    err := awsClient.createPtrResourceRecordSet(p.ip, p.hostname, rInfos)
+    if err != nil && err.Error() != p.expectedError.Error() {
+      t.Errorf("unexpected error (%d): expected error %v, actual error %v", idx, p.expectedError, err)
+    }
+  }
+}
+
+func TestDeletePtrResourceRecordSet(t *testing.T) {
+  var rInfos ReverseHostedZoneInfos
+  rInfos = []ReverseHostedZoneInfo{
+    {
+      Network: &net.IPNet{
+        IP: net.IPv4(10,0,0,0),
+        Mask: net.IPv4Mask(255,0,0,0),
+      },
+      NetworkCIDR: "10.0.0.0/8",
+      HostedZoneID: "ABC123",
+      HostedZoneName: "10.in-addr.arpa.",
+    },
+    {
+      Network: &net.IPNet{
+        IP: net.ParseIP("192.168.0.0"),
+        Mask: net.IPv4Mask(255,255,0,0),
+      },
+      NetworkCIDR: "192.168.0.0/16",
+      HostedZoneID: "EFG456",
+      HostedZoneName: "10.in-addr.arpa.",
+    },
+  }
+  patterns := []struct{
+    ip net.IP
+    hostname string
+    hostedZoneID string
+
+    expectedError error
+  }{
+    {
+      ip: net.ParseIP("10.0.5.10"),
+      hostname: "host.example.com",
+      expectedError: nil,
+    },
+  }
+  for idx, p := range patterns {
+    awsClient := &AWSClientImpl{
+      r53: &DummyRoute53Client{
+        t: t,
+
+        ChangeResourceRecordSetsInput: &route53.ChangeResourceRecordSetsInput{
+          HostedZoneId: aws.String("ABC123"),
+          ChangeBatch: &route53.ChangeBatch{
+            Changes: []*route53.Change{
+              {
+                Action: aws.String(route53.ChangeActionDelete),
+                ResourceRecordSet: &route53.ResourceRecordSet{
+                  Name: aws.String("10.5.0.10.in-addr.arpa."),
+                  ResourceRecords: []*route53.ResourceRecord{
+                    {
+                      Value: aws.String(p.hostname),
+                    },
+                  },
+                  TTL: aws.Int64(600),
+                  Type: aws.String("PTR"),
+                },
+              },
+            },
+          },
+        },
+        ChangeResourceRecordSetsOutput: &route53.ChangeResourceRecordSetsOutput{
+           ChangeInfo: &route53.ChangeInfo{
+            Comment: aws.String("dummy comment"),
+            Id: aws.String("XYZ789"),
+            Status: aws.String(route53.ChangeStatusInsync),
+            SubmittedAt: aws.Time(time.Date(2020, 1, 13, 0, 0, 0, 0, time.UTC)),
+          },
+        },
+        ChangeResourceRecordSetsError: nil,
+
+        GetChangeInput: &route53.GetChangeInput{
+          Id: aws.String("XYZ789"),
+        },
+      },
+    }
+    err := awsClient.deletePtrResourceRecordSet(p.ip, p.hostname, rInfos)
+    if err != nil && err.Error() != p.expectedError.Error() {
+      t.Errorf("unexpected error (%d): expected error %v, actual error %v", idx, p.expectedError, err)
+    }
+  }
+}
+
+func TestAddCnameResourceRecordSet(t *testing.T) {
+  patterns := []struct{
+    hostname string
+    cnameHostname string
+    hostedZoneID string
+
+    expectedError error
+  }{
+    {
+      hostname: "www.example.com",
+      cnameHostname: "cname.example.com",
+      hostedZoneID: "ABC123",
+      expectedError: nil,
+    },
+  }
+
+  for idx, p := range patterns {
+    awsClient := &AWSClientImpl{
+      r53: &DummyRoute53Client{
+        t: t,
+
+        ChangeResourceRecordSetsInput: &route53.ChangeResourceRecordSetsInput{
+          HostedZoneId: aws.String(p.hostedZoneID),
+          ChangeBatch: &route53.ChangeBatch{
+            Changes: []*route53.Change{
+              {
+                Action: aws.String(route53.ChangeActionCreate),
+                ResourceRecordSet: &route53.ResourceRecordSet{
+                  Name: aws.String(p.hostname),
+                  ResourceRecords: []*route53.ResourceRecord{
+                    {
+                      Value: aws.String(p.cnameHostname),
+                    },
+                  },
+                  TTL: aws.Int64(600),
+                  Type: aws.String("CNAME"),
+                },
+              },
+            },
+          },
+        },
+        ChangeResourceRecordSetsOutput: &route53.ChangeResourceRecordSetsOutput{
+           ChangeInfo: &route53.ChangeInfo{
+            Comment: aws.String("dummy comment"),
+            Id: aws.String("XYZ789"),
+            Status: aws.String(route53.ChangeStatusInsync),
+            SubmittedAt: aws.Time(time.Date(2020, 1, 13, 0, 0, 0, 0, time.UTC)),
+          },
+        },
+        ChangeResourceRecordSetsError: nil,
+
+        GetChangeInput: &route53.GetChangeInput{
+          Id: aws.String("XYZ789"),
+        },
+      },
+    }
+    err := awsClient.AddCnameResourceRecordSet(p.hostname, p.cnameHostname, p.hostedZoneID)
+    if err != nil && err.Error() != p.expectedError.Error() {
+      t.Errorf("unexpected error (%d): expected error %v, actual error %v", idx, p.expectedError, err)
+    }
+  }
+}
+
+func TestRemoveCnameResourceRecordSet(t *testing.T) {
+  patterns := []struct{
+    hostname string
+    cnameHostname string
+    hostedZoneID string
+
+    expectedError error
+  }{
+    {
+      hostname: "www.example.com",
+      cnameHostname: "cname.example.com",
+      hostedZoneID: "ABC123",
+      expectedError: nil,
+    },
+  }
+
+  for idx, p := range patterns {
+    awsClient := &AWSClientImpl{
+      r53: &DummyRoute53Client{
+        t: t,
+
+        ChangeResourceRecordSetsInput: &route53.ChangeResourceRecordSetsInput{
+          HostedZoneId: aws.String(p.hostedZoneID),
+          ChangeBatch: &route53.ChangeBatch{
+            Changes: []*route53.Change{
+              {
+                Action: aws.String(route53.ChangeActionDelete),
+                ResourceRecordSet: &route53.ResourceRecordSet{
+                  Name: aws.String(p.hostname),
+                  ResourceRecords: []*route53.ResourceRecord{
+                    {
+                      Value: aws.String(p.cnameHostname),
+                    },
+                  },
+                  TTL: aws.Int64(600),
+                  Type: aws.String("CNAME"),
+                },
+              },
+            },
+          },
+        },
+        ChangeResourceRecordSetsOutput: &route53.ChangeResourceRecordSetsOutput{
+          ChangeInfo: &route53.ChangeInfo{
+            Comment: aws.String("dummy comment"),
+            Id: aws.String("XYZ789"),
+            Status: aws.String(route53.ChangeStatusInsync),
+            SubmittedAt: aws.Time(time.Date(2020, 1, 13, 0, 0, 0, 0, time.UTC)),
+          },
+        },
+        ChangeResourceRecordSetsError: nil,
+
+        GetChangeInput: &route53.GetChangeInput{
+          Id: aws.String("XYZ789"),
+        },
+      },
+    }
+    err := awsClient.RemoveCnameResourceRecordSet(p.hostname, p.cnameHostname, p.hostedZoneID)
+    if err != nil && err.Error() != p.expectedError.Error() {
+      t.Errorf("unexpected error (%d): expected error %v, actual error %v", idx, p.expectedError, err)
     }
   }
 }
