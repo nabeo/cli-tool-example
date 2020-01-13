@@ -44,7 +44,7 @@ func doDelete(c *cli.Context) (err error){
 
   data.zoneID, err = awsClient.GetHostedZoneID(data.zoneName)
   if err != nil {
-    return nil
+    return err
   }
   return nil
 }
