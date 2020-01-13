@@ -194,6 +194,7 @@ func (client *AWSClientImpl) AddCnameResourceRecordSet(hostname string, cnameHos
   }
   return nil
 }
+
 // RemoveCnameResourceRecordSet ...
 func (client *AWSClientImpl) RemoveCnameResourceRecordSet(hostname string, cnameHostname string, hostedZoneID string) (err error) {
   input := &route53.ChangeResourceRecordSetsInput{
@@ -226,6 +227,7 @@ func (client *AWSClientImpl) RemoveCnameResourceRecordSet(hostname string, cname
   }
   return nil
 }
+
 func (client *AWSClientImpl) createAResourceRecordSet(ip net.IP, hostname string, hostedZoneID string) (err error) {
   inputForA := &route53.ChangeResourceRecordSetsInput{
     HostedZoneId: aws.String(hostedZoneID),
