@@ -1,6 +1,8 @@
 package delete
 
 import (
+  "net"
+
 	"github.com/nabeo/cli-tool-example/utils"
 	"github.com/urfave/cli/v2"
 )
@@ -46,5 +48,40 @@ func doDelete(c *cli.Context) (err error){
   if err != nil {
     return err
   }
+
+  var confToml utils.ConfToml
+  err = utils.LoadConf(c.String("conf"), &confToml)
+  if err != nil {
+    return err
+  }
+
+  var rInfos utils.ReverseHostedZoneInfos
+  for _, p := range confToml.ReverseHostedZones {
+    rInfo, err := awsClient.CreateReverseHostedZoneInfo(p.NetworkCIDR, p.ZoneName)
+    if err != nil {
+      return err
+    }
+    rInfos.ReverseHostedZoneInfo[len(rInfos.ReverseHostedZoneInfo)] = rInfo
+  }
+
+  rr, err := awsClient.GetResourceRecordSetByName(data.hostname, data.zoneName)
+  if err != nil {
+    return err
+  }
+
+  switch *rr.Type {
+  case "A":
+    ip := net.ParseIP(*rr.ResourceRecords[0].Value)
+    err = awsClient.RemoveAResourceRecordSet(ip, data.hostname, data.zoneName, rInfos)
+    if err != nil {
+      return err
+    }
+  case "CNAME":
+    err = awsClient.RemoveCnameResourceRecordSet(data.hostname, *rr.ResourceRecords[0].Value, data.zoneName)
+    if err != nil {
+      return err
+    }
+  }
+
   return nil
 }
