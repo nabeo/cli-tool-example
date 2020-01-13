@@ -210,7 +210,7 @@ func TestGetReverseHostedZoneID(t *testing.T) {
       },
       NetworkCIDR: "192.168.0.0/16",
       HostedZoneID: "EFG456",
-      HostedZoneName: "10.in-addr.arpa.",
+      HostedZoneName: "168.192.in-addr.arpa.",
     },
   }
 
