@@ -18,6 +18,10 @@ func main() {
         Name: "profile",
         Usage: "your aws profile",
       },
+      &cli.StringFlag{
+        Name: "conf",
+        Usage: "path to config file",
+      },
       &cli.BoolFlag{
         Name: "dryrun",
         Usage: "dry run",
