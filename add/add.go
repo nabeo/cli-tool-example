@@ -52,6 +52,7 @@ type addData struct {
   cname string
   zonename string
   zoneID string
+  rrType string
 }
 
 func doAdd(c *cli.Context) (err error) {
@@ -65,6 +66,14 @@ func doAdd(c *cli.Context) (err error) {
   data.ip = net.ParseIP(c.String("ip"))
   data.zonename = c.String("zone")
 
+  if len(c.String("ip")) > 0 {
+    data.rrType = "A"
+  } else if len(c.String("cname")) > 0 {
+    data.rrType = "CNAME"
+  } else {
+    return fmt.Errorf("choose ip or cname")
+  }
+
   awsClient, err := utils.NewAWSClient(c)
   if err != nil {
     return err
@@ -74,6 +83,35 @@ func doAdd(c *cli.Context) (err error) {
     return err
   }
 
-  fmt.Println("added: ", c.Args().First())
+  var confToml utils.ConfToml
+  err = utils.LoadConf(c.String("conf"), &confToml)
+  if err != nil {
+    return err
+  }
+
+  var rInfos utils.ReverseHostedZoneInfos
+  for _, p := range confToml.ReverseHostedZones {
+    rInfo, err := awsClient.CreateReverseHostedZoneInfo(p.NetworkCIDR, p.ZoneName)
+    if err != nil {
+      return err
+    }
+    rInfos.ReverseHostedZoneInfo[len(rInfos.ReverseHostedZoneInfo)] = rInfo
+  }
+
+  switch data.rrType {
+  case "A":
+    err = awsClient.AddAResourceRecordSet(data.ip, data.hostname, data.zoneID, rInfos)
+    if err != nil {
+      return err
+    }
+  case "CNAME":
+    err = awsClient.AddCnameResourceRecordSet(data.hostname, data.cname, data.zonename)
+    if err != nil {
+      return err
+    }
+  default:
+    return fmt.Errorf("unknown rr type: %s", data.rrType)
+  }
+
   return nil
 }
