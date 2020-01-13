@@ -677,3 +677,181 @@ func TestRemoveCnameResourceRecordSet(t *testing.T) {
     }
   }
 }
+
+func TestGetResourceRecordSetByName(t *testing.T) {
+  patterns := []struct{
+    hostname string
+    hostedZoneID string
+
+    expectedRR route53.ResourceRecordSet
+    expectedError error
+
+    listResourceRecordSetsInput *route53.ListResourceRecordSetsInput
+    listResourceRecordSetsOutput *route53.ListResourceRecordSetsOutput
+    listResourceRecordSetsError error
+  }{
+    {
+      hostname: "www.example.com.",
+      hostedZoneID: "ABC123",
+
+      expectedRR: route53.ResourceRecordSet{
+        Name: aws.String("www.example.com."),
+        Region: aws.String(route53.ResourceRecordSetRegionApNortheast1),
+        ResourceRecords: []*route53.ResourceRecord{
+          {
+            Value: aws.String("10.0.1.15"),
+          },
+        },
+        TTL: aws.Int64(600),
+        Type: aws.String(route53.RRTypeA),
+      },
+      expectedError: nil,
+
+      listResourceRecordSetsInput: &route53.ListResourceRecordSetsInput{
+        HostedZoneId: aws.String("ABC123"),
+        MaxItems: aws.String("1"),
+        StartRecordName: aws.String("www.example.com."),
+      },
+      listResourceRecordSetsOutput: &route53.ListResourceRecordSetsOutput{
+        IsTruncated: aws.Bool(false),
+        MaxItems: aws.String("1"),
+        ResourceRecordSets: []*route53.ResourceRecordSet{
+          {
+            Name: aws.String("www.example.com."),
+            Region: aws.String(route53.ResourceRecordSetRegionApNortheast1),
+            ResourceRecords: []*route53.ResourceRecord{
+              {
+                Value: aws.String("10.0.1.15"),
+              },
+            },
+            TTL: aws.Int64(600),
+            Type: aws.String(route53.RRTypeA),
+          },
+        },
+      },
+      listResourceRecordSetsError: nil,
+    },
+    {
+      hostname: "www.example.com.",
+      hostedZoneID: "ABC123",
+
+      expectedRR: route53.ResourceRecordSet{
+        Name: aws.String("www.example.com."),
+        Region: aws.String(route53.ResourceRecordSetRegionApNortheast1),
+        ResourceRecords: []*route53.ResourceRecord{
+          {
+            Value: aws.String("cname.example.com."),
+          },
+        },
+        TTL: aws.Int64(600),
+        Type: aws.String(route53.RRTypeCname),
+      },
+      expectedError: nil,
+
+      listResourceRecordSetsInput: &route53.ListResourceRecordSetsInput{
+        HostedZoneId: aws.String("ABC123"),
+        MaxItems: aws.String("1"),
+        StartRecordName: aws.String("www.example.com."),
+      },
+      listResourceRecordSetsOutput: &route53.ListResourceRecordSetsOutput{
+        IsTruncated: aws.Bool(false),
+        MaxItems: aws.String("1"),
+        ResourceRecordSets: []*route53.ResourceRecordSet{
+          {
+            Name: aws.String("www.example.com."),
+            Region: aws.String(route53.ResourceRecordSetRegionApNortheast1),
+            ResourceRecords: []*route53.ResourceRecord{
+              {
+                Value: aws.String("cname.example.com."),
+              },
+            },
+            TTL: aws.Int64(600),
+            Type: aws.String(route53.RRTypeCname),
+          },
+        },
+      },
+      listResourceRecordSetsError: nil,
+    },
+    {
+      hostname: "www.example.com.",
+      hostedZoneID: "ABC123",
+
+      expectedRR: route53.ResourceRecordSet{},
+      expectedError: errors.New("unexpected response: response is truncated"),
+
+      listResourceRecordSetsInput: &route53.ListResourceRecordSetsInput{
+        HostedZoneId: aws.String("ABC123"),
+        MaxItems: aws.String("1"),
+        StartRecordName: aws.String("www.example.com."),
+      },
+      listResourceRecordSetsOutput: &route53.ListResourceRecordSetsOutput{
+        IsTruncated: aws.Bool(true),
+        MaxItems: aws.String("1"),
+        ResourceRecordSets: []*route53.ResourceRecordSet{
+          {
+            Name: aws.String("www.example.com."),
+            Region: aws.String(route53.ResourceRecordSetRegionApNortheast1),
+            ResourceRecords: []*route53.ResourceRecord{
+              {
+                Value: aws.String("cname.example.com."),
+              },
+            },
+            TTL: aws.Int64(600),
+            Type: aws.String(route53.RRTypeCname),
+          },
+        },
+      },
+      listResourceRecordSetsError: nil,
+    },
+    {
+      hostname: "www.example.com.",
+      hostedZoneID: "ABC123",
+
+      expectedRR: route53.ResourceRecordSet{},
+      expectedError: errors.New("hostname mismatch: input www.example.com., response invalid.example.com."),
+
+      listResourceRecordSetsInput: &route53.ListResourceRecordSetsInput{
+        HostedZoneId: aws.String("ABC123"),
+        MaxItems: aws.String("1"),
+        StartRecordName: aws.String("www.example.com."),
+      },
+      listResourceRecordSetsOutput: &route53.ListResourceRecordSetsOutput{
+        IsTruncated: aws.Bool(false),
+        MaxItems: aws.String("1"),
+        ResourceRecordSets: []*route53.ResourceRecordSet{
+          {
+            Name: aws.String("invalid.example.com."),
+            Region: aws.String(route53.ResourceRecordSetRegionApNortheast1),
+            ResourceRecords: []*route53.ResourceRecord{
+              {
+                Value: aws.String("cname.example.com."),
+              },
+            },
+            TTL: aws.Int64(600),
+            Type: aws.String(route53.RRTypeCname),
+          },
+        },
+      },
+      listResourceRecordSetsError: nil,
+    },
+  }
+
+  for idx, p := range patterns {
+    awsClient := &AWSClientImpl{
+      r53: &DummyRoute53Client{
+        t: t,
+
+        listResourceRecordSetsInput: p.listResourceRecordSetsInput,
+        listResourceRecordSetsOutput: p.listResourceRecordSetsOutput,
+        listHostedZonesByNameError: p.listResourceRecordSetsError,
+      },
+    }
+    rr, err := awsClient.GetResourceRecordSetByName(p.hostname, p.hostedZoneID)
+    if err != nil && err.Error() != p.expectedError.Error() {
+      t.Errorf("unexpected error (%d): expected error %v, actual error %v", idx, p.expectedError, err)
+    }
+    if awsutil.StringValue(rr) != awsutil.StringValue(p.expectedRR) {
+      t.Errorf("response mismatch: expected %v, actual %v", p.expectedRR, rr)
+    }
+  }
+}

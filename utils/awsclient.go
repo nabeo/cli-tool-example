@@ -385,3 +385,23 @@ func (client *AWSClientImpl) deletePtrResourceRecordSet(ip net.IP, hostname stri
   }
   return nil
 }
+
+// GetResourceRecordSetByName ...
+func (client *AWSClientImpl) GetResourceRecordSetByName(hostname string, hostedZoneID string) (rr route53.ResourceRecordSet, err error) {
+  input := &route53.ListResourceRecordSetsInput{
+    HostedZoneId: aws.String(hostedZoneID),
+    MaxItems: aws.String("1"),
+    StartRecordName: aws.String(hostname),
+  }
+  resp, err := client.r53.ListResourceRecordSets(input)
+  if err != nil {
+    return rr, err
+  }
+  if *resp.IsTruncated {
+    return rr, fmt.Errorf("unexpected response: response is truncated")
+  }
+  if hostname != *resp.ResourceRecordSets[0].Name {
+    return rr, fmt.Errorf("hostname mismatch: input %s, response %s", hostname, *resp.ResourceRecordSets[0].Name)
+  }
+  return *resp.ResourceRecordSets[0], nil
+}
