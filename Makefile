@@ -6,11 +6,11 @@ init:
 
 .PHONY: test
 test:
-	GO111MODULE=off go test -v ./...
+	GO111MODULE=on go test -v ./...
 
 .PHOMY: lint
 lint:
-	GO111MODULE=off golint ./...
+	GO111MODULE=on golint ./...
 
 .PHONY: build
 build: lint test $(NAME)
