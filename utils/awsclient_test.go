@@ -23,13 +23,13 @@ type DummyRoute53Client struct {
   listResourceRecordSetsOutput *route53.ListResourceRecordSetsOutput
   listResourceRecordSetsError error
 
-  ChangeResourceRecordSetsInput *route53.ChangeResourceRecordSetsInput
-  ChangeResourceRecordSetsOutput *route53.ChangeResourceRecordSetsOutput
-  ChangeResourceRecordSetsError error
+  changeResourceRecordSetsInput *route53.ChangeResourceRecordSetsInput
+  changeResourceRecordSetsOutput *route53.ChangeResourceRecordSetsOutput
+  changeResourceRecordSetsError error
 
-  GetChangeInput *route53.GetChangeInput
+  getChangeInput *route53.GetChangeInput
 
-  WaitUntilResourceRecordSetsChangedError error
+  waitUntilResourceRecordSetsChangedError error
 }
 
 func (c DummyRoute53Client) ListHostedZonesByName(input *route53.ListHostedZonesByNameInput) (*route53.ListHostedZonesByNameOutput, error) {
@@ -57,7 +57,7 @@ func (c DummyRoute53Client) ListResourceRecordSets(input *route53.ListResourceRe
 }
 
 func (c DummyRoute53Client) ChangeResourceRecordSets(input *route53.ChangeResourceRecordSetsInput) (*route53.ChangeResourceRecordSetsOutput, error) {
-  expectedInput := awsutil.StringValue(c.ChangeResourceRecordSetsInput)
+  expectedInput := awsutil.StringValue(c.changeResourceRecordSetsInput)
   actualInput := awsutil.StringValue(input)
   if expectedInput != actualInput {
     c.t.Errorf("unexpected input: expected %v, actual %v", expectedInput, actualInput)
@@ -67,11 +67,11 @@ func (c DummyRoute53Client) ChangeResourceRecordSets(input *route53.ChangeResour
     c.t.Errorf("validate error: %s", validateError.Error())
   }
 
-  return c.ChangeResourceRecordSetsOutput, c.ChangeResourceRecordSetsError
+  return c.changeResourceRecordSetsOutput, c.changeResourceRecordSetsError
 }
 
 func (c DummyRoute53Client) WaitUntilResourceRecordSetsChanged(input *route53.GetChangeInput) error {
-  expectedInput := awsutil.StringValue(c.GetChangeInput)
+  expectedInput := awsutil.StringValue(c.getChangeInput)
   actualInput := awsutil.StringValue(input)
   if expectedInput != actualInput {
     c.t.Errorf("unexpected input: expected %v, actual %v", expectedInput, actualInput)
@@ -81,7 +81,7 @@ func (c DummyRoute53Client) WaitUntilResourceRecordSetsChanged(input *route53.Ge
     c.t.Errorf("validate error: %v", validateError.Error())
   }
 
-  return c.WaitUntilResourceRecordSetsChangedError
+  return c.waitUntilResourceRecordSetsChangedError
 }
 
 func TestGetHostedZoneID(t *testing.T) {
@@ -279,7 +279,7 @@ func TestCreateAResourceRecordSet(t *testing.T) {
       r53: &DummyRoute53Client{
         t: t,
 
-        ChangeResourceRecordSetsInput: &route53.ChangeResourceRecordSetsInput{
+        changeResourceRecordSetsInput: &route53.ChangeResourceRecordSetsInput{
           HostedZoneId: aws.String(p.hostedZoneID),
           ChangeBatch: &route53.ChangeBatch{
             Changes: []*route53.Change{
@@ -299,7 +299,7 @@ func TestCreateAResourceRecordSet(t *testing.T) {
             },
           },
         },
-        ChangeResourceRecordSetsOutput: &route53.ChangeResourceRecordSetsOutput{
+        changeResourceRecordSetsOutput: &route53.ChangeResourceRecordSetsOutput{
           ChangeInfo: &route53.ChangeInfo{
             Comment: aws.String("dummy comment"),
             Id: aws.String("XYZ789"),
@@ -307,9 +307,9 @@ func TestCreateAResourceRecordSet(t *testing.T) {
             SubmittedAt: aws.Time(time.Date(2020, 1, 13, 0, 0, 0, 0, time.UTC)),
           },
         },
-        ChangeResourceRecordSetsError: nil,
+        changeResourceRecordSetsError: nil,
 
-        GetChangeInput: &route53.GetChangeInput{
+        getChangeInput: &route53.GetChangeInput{
           Id: aws.String("XYZ789"),
         },
       },
@@ -342,7 +342,7 @@ func TestDeleteAResourceRecordSet(t *testing.T) {
       r53: &DummyRoute53Client{
         t: t,
 
-        ChangeResourceRecordSetsInput: &route53.ChangeResourceRecordSetsInput{
+        changeResourceRecordSetsInput: &route53.ChangeResourceRecordSetsInput{
           HostedZoneId: aws.String(p.hostedZoneID),
           ChangeBatch: &route53.ChangeBatch{
             Changes: []*route53.Change{
@@ -362,7 +362,7 @@ func TestDeleteAResourceRecordSet(t *testing.T) {
             },
           },
         },
-        ChangeResourceRecordSetsOutput: &route53.ChangeResourceRecordSetsOutput{
+        changeResourceRecordSetsOutput: &route53.ChangeResourceRecordSetsOutput{
           ChangeInfo: &route53.ChangeInfo{
             Comment: aws.String("dummy comment"),
             Id: aws.String("XYZ789"),
@@ -370,9 +370,9 @@ func TestDeleteAResourceRecordSet(t *testing.T) {
             SubmittedAt: aws.Time(time.Date(2020, 1, 13, 0, 0, 0, 0, time.UTC)),
           },
         },
-        ChangeResourceRecordSetsError: nil,
+        changeResourceRecordSetsError: nil,
 
-        GetChangeInput: &route53.GetChangeInput{
+        getChangeInput: &route53.GetChangeInput{
           Id: aws.String("XYZ789"),
         },
       },
@@ -426,7 +426,7 @@ func TestCreatePtrResourceRecordSet(t *testing.T) {
       r53: &DummyRoute53Client{
         t: t,
 
-        ChangeResourceRecordSetsInput: &route53.ChangeResourceRecordSetsInput{
+        changeResourceRecordSetsInput: &route53.ChangeResourceRecordSetsInput{
           HostedZoneId: aws.String("ABC123"),
           ChangeBatch: &route53.ChangeBatch{
             Changes: []*route53.Change{
@@ -446,7 +446,7 @@ func TestCreatePtrResourceRecordSet(t *testing.T) {
             },
           },
         },
-        ChangeResourceRecordSetsOutput: &route53.ChangeResourceRecordSetsOutput{
+        changeResourceRecordSetsOutput: &route53.ChangeResourceRecordSetsOutput{
            ChangeInfo: &route53.ChangeInfo{
             Comment: aws.String("dummy comment"),
             Id: aws.String("XYZ789"),
@@ -454,9 +454,9 @@ func TestCreatePtrResourceRecordSet(t *testing.T) {
             SubmittedAt: aws.Time(time.Date(2020, 1, 13, 0, 0, 0, 0, time.UTC)),
           },
         },
-        ChangeResourceRecordSetsError: nil,
+        changeResourceRecordSetsError: nil,
 
-        GetChangeInput: &route53.GetChangeInput{
+        getChangeInput: &route53.GetChangeInput{
           Id: aws.String("XYZ789"),
         },
       },
@@ -510,7 +510,7 @@ func TestDeletePtrResourceRecordSet(t *testing.T) {
       r53: &DummyRoute53Client{
         t: t,
 
-        ChangeResourceRecordSetsInput: &route53.ChangeResourceRecordSetsInput{
+        changeResourceRecordSetsInput: &route53.ChangeResourceRecordSetsInput{
           HostedZoneId: aws.String("ABC123"),
           ChangeBatch: &route53.ChangeBatch{
             Changes: []*route53.Change{
@@ -530,7 +530,7 @@ func TestDeletePtrResourceRecordSet(t *testing.T) {
             },
           },
         },
-        ChangeResourceRecordSetsOutput: &route53.ChangeResourceRecordSetsOutput{
+        changeResourceRecordSetsOutput: &route53.ChangeResourceRecordSetsOutput{
            ChangeInfo: &route53.ChangeInfo{
             Comment: aws.String("dummy comment"),
             Id: aws.String("XYZ789"),
@@ -538,9 +538,9 @@ func TestDeletePtrResourceRecordSet(t *testing.T) {
             SubmittedAt: aws.Time(time.Date(2020, 1, 13, 0, 0, 0, 0, time.UTC)),
           },
         },
-        ChangeResourceRecordSetsError: nil,
+        changeResourceRecordSetsError: nil,
 
-        GetChangeInput: &route53.GetChangeInput{
+        getChangeInput: &route53.GetChangeInput{
           Id: aws.String("XYZ789"),
         },
       },
@@ -573,7 +573,7 @@ func TestAddCnameResourceRecordSet(t *testing.T) {
       r53: &DummyRoute53Client{
         t: t,
 
-        ChangeResourceRecordSetsInput: &route53.ChangeResourceRecordSetsInput{
+        changeResourceRecordSetsInput: &route53.ChangeResourceRecordSetsInput{
           HostedZoneId: aws.String(p.hostedZoneID),
           ChangeBatch: &route53.ChangeBatch{
             Changes: []*route53.Change{
@@ -593,7 +593,7 @@ func TestAddCnameResourceRecordSet(t *testing.T) {
             },
           },
         },
-        ChangeResourceRecordSetsOutput: &route53.ChangeResourceRecordSetsOutput{
+        changeResourceRecordSetsOutput: &route53.ChangeResourceRecordSetsOutput{
            ChangeInfo: &route53.ChangeInfo{
             Comment: aws.String("dummy comment"),
             Id: aws.String("XYZ789"),
@@ -601,9 +601,9 @@ func TestAddCnameResourceRecordSet(t *testing.T) {
             SubmittedAt: aws.Time(time.Date(2020, 1, 13, 0, 0, 0, 0, time.UTC)),
           },
         },
-        ChangeResourceRecordSetsError: nil,
+        changeResourceRecordSetsError: nil,
 
-        GetChangeInput: &route53.GetChangeInput{
+        getChangeInput: &route53.GetChangeInput{
           Id: aws.String("XYZ789"),
         },
       },
@@ -636,7 +636,7 @@ func TestRemoveCnameResourceRecordSet(t *testing.T) {
       r53: &DummyRoute53Client{
         t: t,
 
-        ChangeResourceRecordSetsInput: &route53.ChangeResourceRecordSetsInput{
+        changeResourceRecordSetsInput: &route53.ChangeResourceRecordSetsInput{
           HostedZoneId: aws.String(p.hostedZoneID),
           ChangeBatch: &route53.ChangeBatch{
             Changes: []*route53.Change{
@@ -656,7 +656,7 @@ func TestRemoveCnameResourceRecordSet(t *testing.T) {
             },
           },
         },
-        ChangeResourceRecordSetsOutput: &route53.ChangeResourceRecordSetsOutput{
+        changeResourceRecordSetsOutput: &route53.ChangeResourceRecordSetsOutput{
           ChangeInfo: &route53.ChangeInfo{
             Comment: aws.String("dummy comment"),
             Id: aws.String("XYZ789"),
@@ -664,9 +664,9 @@ func TestRemoveCnameResourceRecordSet(t *testing.T) {
             SubmittedAt: aws.Time(time.Date(2020, 1, 13, 0, 0, 0, 0, time.UTC)),
           },
         },
-        ChangeResourceRecordSetsError: nil,
+        changeResourceRecordSetsError: nil,
 
-        GetChangeInput: &route53.GetChangeInput{
+        getChangeInput: &route53.GetChangeInput{
           Id: aws.String("XYZ789"),
         },
       },
