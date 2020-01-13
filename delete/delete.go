@@ -31,7 +31,6 @@ var Command = cli.Command{
 type delData struct {
   hostname string
   zoneName string
-  zoneID string
 }
 
 func doDelete(c *cli.Context) (err error){
@@ -40,11 +39,6 @@ func doDelete(c *cli.Context) (err error){
   data.zoneName = c.String("zone")
 
   awsClient, err := utils.NewAWSClient(c)
-  if err != nil {
-    return err
-  }
-
-  data.zoneID, err = awsClient.GetHostedZoneID(data.zoneName)
   if err != nil {
     return err
   }
