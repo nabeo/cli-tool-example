@@ -28,7 +28,9 @@ type Route53Client interface {
 }
 
 // ReverseHostedZoneInfos ...
-type ReverseHostedZoneInfos []ReverseHostedZoneInfo
+type ReverseHostedZoneInfos struct {
+  ReverseHostedZoneInfo []ReverseHostedZoneInfo
+}
 
 // ReverseHostedZoneInfo ...
 type ReverseHostedZoneInfo struct {
@@ -113,9 +115,27 @@ func compareHostedZoneName(input string, output string) bool {
   return i == o
 }
 
+// CreateReverseHostedZoneInfo ...
+func (client *AWSClientImpl) CreateReverseHostedZoneInfo(networkCIDR string, zoneName string) (rInfo ReverseHostedZoneInfo, err error) {
+  rInfo.NetworkCIDR = networkCIDR
+  rInfo.HostedZoneName = zoneName
+
+  _, rInfo.Network, err = net.ParseCIDR(networkCIDR)
+  if err != nil {
+    return rInfo, err
+  }
+
+  rInfo.HostedZoneID, err = client.GetHostedZoneID(zoneName)
+  if err != nil {
+    return rInfo, err
+  }
+
+  return rInfo, nil
+}
+
 // GetReverseHostedZoneID ...
 func GetReverseHostedZoneID(ip net.IP, rInfos ReverseHostedZoneInfos) (hostedZoneID string, err error) {
-  for _, zoneInfo := range rInfos {
+  for _, zoneInfo := range rInfos.ReverseHostedZoneInfo {
     ipnet := zoneInfo.Network
     if ipnet.Contains(ip) {
       return zoneInfo.HostedZoneID, nil

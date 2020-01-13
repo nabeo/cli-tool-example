@@ -192,25 +192,26 @@ func TestCompareHostedZoneName (t *testing.T) {
 }
 
 func TestGetReverseHostedZoneID(t *testing.T) {
-  var rInfos ReverseHostedZoneInfos
-  rInfos = []ReverseHostedZoneInfo{
-    {
-      Network: &net.IPNet{
-        IP: net.IPv4(10,0,0,0),
-        Mask: net.IPv4Mask(255,0,0,0),
+  rInfos := ReverseHostedZoneInfos{
+    ReverseHostedZoneInfo: []ReverseHostedZoneInfo{
+      {
+        Network: &net.IPNet{
+          IP: net.IPv4(10,0,0,0),
+          Mask: net.IPv4Mask(255,0,0,0),
+        },
+        NetworkCIDR: "10.0.0.0/8",
+        HostedZoneID: "ABC123",
+        HostedZoneName: "10.in-addr.arpa.",
       },
-      NetworkCIDR: "10.0.0.0/8",
-      HostedZoneID: "ABC123",
-      HostedZoneName: "10.in-addr.arpa.",
-    },
-    {
-      Network: &net.IPNet{
-        IP: net.ParseIP("192.168.0.0"),
-        Mask: net.IPv4Mask(255,255,0,0),
+      {
+        Network: &net.IPNet{
+          IP: net.ParseIP("192.168.0.0"),
+          Mask: net.IPv4Mask(255,255,0,0),
+        },
+        NetworkCIDR: "192.168.0.0/16",
+        HostedZoneID: "EFG456",
+        HostedZoneName: "168.192.in-addr.arpa.",
       },
-      NetworkCIDR: "192.168.0.0/16",
-      HostedZoneID: "EFG456",
-      HostedZoneName: "168.192.in-addr.arpa.",
     },
   }
 
@@ -384,27 +385,29 @@ func TestDeleteAResourceRecordSet(t *testing.T) {
 }
 
 func TestCreatePtrResourceRecordSet(t *testing.T) {
-  var rInfos ReverseHostedZoneInfos
-  rInfos = []ReverseHostedZoneInfo{
-    {
-      Network: &net.IPNet{
-        IP: net.IPv4(10,0,0,0),
-        Mask: net.IPv4Mask(255,0,0,0),
+  rInfos := ReverseHostedZoneInfos{
+    ReverseHostedZoneInfo: []ReverseHostedZoneInfo{
+      {
+        Network: &net.IPNet{
+          IP: net.IPv4(10,0,0,0),
+          Mask: net.IPv4Mask(255,0,0,0),
+        },
+        NetworkCIDR: "10.0.0.0/8",
+        HostedZoneID: "ABC123",
+        HostedZoneName: "10.in-addr.arpa.",
       },
-      NetworkCIDR: "10.0.0.0/8",
-      HostedZoneID: "ABC123",
-      HostedZoneName: "10.in-addr.arpa.",
-    },
-    {
-      Network: &net.IPNet{
-        IP: net.ParseIP("192.168.0.0"),
-        Mask: net.IPv4Mask(255,255,0,0),
+      {
+        Network: &net.IPNet{
+          IP: net.ParseIP("192.168.0.0"),
+          Mask: net.IPv4Mask(255,255,0,0),
+        },
+        NetworkCIDR: "192.168.0.0/16",
+        HostedZoneID: "EFG456",
+        HostedZoneName: "10.in-addr.arpa.",
       },
-      NetworkCIDR: "192.168.0.0/16",
-      HostedZoneID: "EFG456",
-      HostedZoneName: "10.in-addr.arpa.",
     },
   }
+
   patterns := []struct{
     ip net.IP
     hostname string
@@ -466,27 +469,29 @@ func TestCreatePtrResourceRecordSet(t *testing.T) {
 }
 
 func TestDeletePtrResourceRecordSet(t *testing.T) {
-  var rInfos ReverseHostedZoneInfos
-  rInfos = []ReverseHostedZoneInfo{
-    {
-      Network: &net.IPNet{
-        IP: net.IPv4(10,0,0,0),
-        Mask: net.IPv4Mask(255,0,0,0),
+  rInfos := ReverseHostedZoneInfos{
+    ReverseHostedZoneInfo: []ReverseHostedZoneInfo{
+      {
+        Network: &net.IPNet{
+          IP: net.IPv4(10,0,0,0),
+          Mask: net.IPv4Mask(255,0,0,0),
+        },
+        NetworkCIDR: "10.0.0.0/8",
+        HostedZoneID: "ABC123",
+        HostedZoneName: "10.in-addr.arpa.",
       },
-      NetworkCIDR: "10.0.0.0/8",
-      HostedZoneID: "ABC123",
-      HostedZoneName: "10.in-addr.arpa.",
-    },
-    {
-      Network: &net.IPNet{
-        IP: net.ParseIP("192.168.0.0"),
-        Mask: net.IPv4Mask(255,255,0,0),
+      {
+        Network: &net.IPNet{
+          IP: net.ParseIP("192.168.0.0"),
+          Mask: net.IPv4Mask(255,255,0,0),
+        },
+        NetworkCIDR: "192.168.0.0/16",
+        HostedZoneID: "EFG456",
+        HostedZoneName: "10.in-addr.arpa.",
       },
-      NetworkCIDR: "192.168.0.0/16",
-      HostedZoneID: "EFG456",
-      HostedZoneName: "10.in-addr.arpa.",
     },
   }
+
   patterns := []struct{
     ip net.IP
     hostname string
