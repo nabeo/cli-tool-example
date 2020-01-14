@@ -22,10 +22,6 @@ func main() {
         Name: "conf",
         Usage: "path to config file",
       },
-      &cli.BoolFlag{
-        Name: "dryrun",
-        Usage: "dry run",
-      },
     },
     Commands: []*cli.Command{
       &add.Command,
