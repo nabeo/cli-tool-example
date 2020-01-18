@@ -855,3 +855,98 @@ func TestGetResourceRecordSetByName(t *testing.T) {
     }
   }
 }
+
+func TestDeleteResourceRecordSet(t *testing.T) {
+  patterns := []struct{
+    rrset *route53.ResourceRecordSet
+    hostedZoneName string
+    hostedZoneID string
+    hostname string
+
+    expectedError error
+
+    changeResourceRecordSetsOutput *route53.ChangeResourceRecordSetsOutput
+    changeResourceRecordSetsError error
+
+    listHostedZonesByNameError error
+
+    waitUntilResourceRecordSetsChangedError error
+  }{
+    {
+      rrset: &route53.ResourceRecordSet{
+        Name: aws.String("www.example.com."),
+        ResourceRecords: []*route53.ResourceRecord{
+          {
+            Value: aws.String("10.0.1.15"),
+          },
+        },
+        TTL: aws.Int64(600),
+        Type: aws.String(route53.RRTypeA),
+      },
+      hostedZoneName: "example.com.",
+      hostedZoneID: "ABC123",
+      expectedError: nil,
+
+      changeResourceRecordSetsOutput: &route53.ChangeResourceRecordSetsOutput{
+        ChangeInfo: &route53.ChangeInfo{
+          Comment: aws.String("dummy comment"),
+          Id: aws.String("XYZ789"),
+          Status: aws.String(route53.ChangeStatusInsync),
+          SubmittedAt: aws.Time(time.Date(2020, 1, 13, 0, 0, 0, 0, time.UTC)),
+        },
+      },
+      changeResourceRecordSetsError: nil,
+
+      listHostedZonesByNameError: nil,
+
+      waitUntilResourceRecordSetsChangedError: nil,
+    },
+  }
+
+  for idx, p := range patterns{
+    awsClient := &AWSClientImpl{
+      r53: &DummyRoute53Client{
+        t: t,
+
+        changeResourceRecordSetsInput: &route53.ChangeResourceRecordSetsInput{
+          HostedZoneId: aws.String(p.hostedZoneID),
+          ChangeBatch: &route53.ChangeBatch{
+            Changes: []*route53.Change{
+              {
+                Action: aws.String(route53.ChangeActionDelete),
+                ResourceRecordSet: p.rrset,
+              },
+            },
+          },
+        },
+        changeResourceRecordSetsOutput: p.changeResourceRecordSetsOutput,
+        changeResourceRecordSetsError: p.changeResourceRecordSetsError,
+        listHostedZonesByNameInput: &route53.ListHostedZonesByNameInput{
+          DNSName: aws.String(p.hostedZoneName),
+          MaxItems: aws.String("1"),
+        },
+        listHostedZonesByNameOutput: &route53.ListHostedZonesByNameOutput{
+          DNSName: aws.String(p.hostedZoneName),
+          HostedZoneId: aws.String(p.hostedZoneID),
+          HostedZones: []*route53.HostedZone{
+            {
+              CallerReference: aws.String(p.hostedZoneName),
+              Id: aws.String(p.hostedZoneID),
+              Name: aws.String(p.hostedZoneName),
+            },
+          },
+          IsTruncated: aws.Bool(false),
+        },
+        listHostedZonesByNameError: p.listHostedZonesByNameError,
+        waitUntilResourceRecordSetsChangedError: p.waitUntilResourceRecordSetsChangedError,
+        getChangeInput: &route53.GetChangeInput{
+          Id: aws.String("XYZ789"),
+        },
+      },
+    }
+    err := awsClient.deleteResourceRecordSet(p.rrset, p.hostedZoneName)
+    if err != nil && err.Error() != p.expectedError.Error() {
+      t.Errorf("unexpected Error (%d): expected error %v, actual error %v", idx, p.expectedError, err)
+    }
+  }
+}

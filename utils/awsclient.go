@@ -280,6 +280,25 @@ func (client *AWSClientImpl) createAResourceRecordSet(ip net.IP, hostname string
   return nil
 }
 
+func (client *AWSClientImpl) deleteResourceRecordSet(rrset *route53.ResourceRecordSet, hostedZoneName string) (err error) {
+  hostedZoneID, err := client.GetHostedZoneID(hostedZoneName)
+  if err != nil {
+    return err
+  }
+  input := &route53.ChangeResourceRecordSetsInput{
+    HostedZoneId: aws.String(hostedZoneID),
+    ChangeBatch: &route53.ChangeBatch{
+      Changes: []*route53.Change{
+        {
+          Action: aws.String(route53.ChangeActionDelete),
+          ResourceRecordSet: rrset,
+        },
+      },
+    },
+  }
+  return client.changeAndWaitResourceRecordSet(input)
+}
+
 func (client *AWSClientImpl) createPtrResourceRecordSet(ip net.IP, hostname string, rInfos ReverseHostedZoneInfos) (err error) {
   reverseHostedZoneID, err := GetReverseHostedZoneID(ip, rInfos)
   if err != nil {
