@@ -903,7 +903,7 @@ func TestDeleteResourceRecordSet(t *testing.T) {
     },
   }
 
-  for idx, p := range patterns{
+  for idx, p := range patterns {
     awsClient := &AWSClientImpl{
       r53: &DummyRoute53Client{
         t: t,
