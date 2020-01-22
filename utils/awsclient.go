@@ -269,7 +269,11 @@ func (client *AWSClientImpl) createAResourceRecordSet(ip net.IP, hostname string
       },
     },
   }
-  resp, err := client.r53.ChangeResourceRecordSets(inputForA)
+  return client.changeAndWaitResourceRecordSet(inputForA)
+}
+
+func (client *AWSClientImpl) changeAndWaitResourceRecordSet(input *route53.ChangeResourceRecordSetsInput) (err error) {
+  resp, err := client.r53.ChangeResourceRecordSets(input)
   if err != nil {
     return err
   }

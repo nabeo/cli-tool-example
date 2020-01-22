@@ -950,3 +950,133 @@ func TestDeleteResourceRecordSet(t *testing.T) {
     }
   }
 }
+
+func TestChangeAndWaitResourceRecordSet(t *testing.T) {
+  patterns := []struct{
+    input *route53.ChangeResourceRecordSetsInput
+    expectedError error
+  }{
+    {
+      input: &route53.ChangeResourceRecordSetsInput{
+        HostedZoneId: aws.String("ABC123"),
+        ChangeBatch: &route53.ChangeBatch{
+          Changes: []*route53.Change{
+            {
+              Action: aws.String(route53.ChangeActionCreate),
+              ResourceRecordSet: &route53.ResourceRecordSet{
+                Name: aws.String("www.example.com."),
+                ResourceRecords: []*route53.ResourceRecord{
+                  {
+                    Value: aws.String("10.0.1.15"),
+                  },
+                },
+                TTL: aws.Int64(600),
+                Type: aws.String(route53.RRTypeA),
+              },
+            },
+          },
+        },
+      },
+      expectedError: nil,
+    },
+    {
+      input: &route53.ChangeResourceRecordSetsInput{
+        HostedZoneId: aws.String("ABC123"),
+        ChangeBatch: &route53.ChangeBatch{
+          Changes: []*route53.Change{
+            {
+              Action: aws.String(route53.ChangeActionDelete),
+              ResourceRecordSet: &route53.ResourceRecordSet{
+                Name: aws.String("www.example.com."),
+                ResourceRecords: []*route53.ResourceRecord{
+                  {
+                    Value: aws.String("10.0.1.15"),
+                  },
+                },
+                TTL: aws.Int64(600),
+                Type: aws.String(route53.RRTypeA),
+              },
+            },
+          },
+        },
+      },
+      expectedError: nil,
+    },
+    {
+      input: &route53.ChangeResourceRecordSetsInput{
+        HostedZoneId: aws.String("ABC123"),
+        ChangeBatch: &route53.ChangeBatch{
+          Changes: []*route53.Change{
+            {
+              Action: aws.String(route53.ChangeActionCreate),
+              ResourceRecordSet: &route53.ResourceRecordSet{
+                Name: aws.String("www.example.com."),
+                ResourceRecords: []*route53.ResourceRecord{
+                  {
+                    Value: aws.String("w1.example.com."),
+                  },
+                },
+                TTL: aws.Int64(600),
+                Type: aws.String(route53.RRTypeCname),
+              },
+            },
+          },
+        },
+      },
+      expectedError: nil,
+    },
+    {
+      input: &route53.ChangeResourceRecordSetsInput{
+        HostedZoneId: aws.String("ABC123"),
+        ChangeBatch: &route53.ChangeBatch{
+          Changes: []*route53.Change{
+            {
+              Action: aws.String(route53.ChangeActionDelete),
+              ResourceRecordSet: &route53.ResourceRecordSet{
+                Name: aws.String("www.example.com."),
+                ResourceRecords: []*route53.ResourceRecord{
+                  {
+                    Value: aws.String("w1.example.com."),
+                  },
+                },
+                TTL: aws.Int64(600),
+                Type: aws.String(route53.RRTypeCname),
+              },
+            },
+          },
+        },
+      },
+      expectedError: nil,
+    },
+  }
+
+  for idx, p := range patterns {
+    awsClient := &AWSClientImpl{
+      r53: &DummyRoute53Client{
+        t: t,
+
+        changeResourceRecordSetsInput: p.input,
+        changeResourceRecordSetsOutput: &route53.ChangeResourceRecordSetsOutput{
+          ChangeInfo: &route53.ChangeInfo{
+            Comment: aws.String("dummy comment"),
+            Id: aws.String("XYZ789"),
+            Status: aws.String(route53.ChangeStatusInsync),
+            SubmittedAt: aws.Time(time.Date(2020, 1, 13, 0, 0, 0, 0, time.UTC)),
+          },
+        },
+        changeResourceRecordSetsError: nil,
+
+        getChangeInput: &route53.GetChangeInput{
+          Id: aws.String("XYZ789"),
+        },
+
+        waitUntilResourceRecordSetsChangedError: nil,
+      },
+    }
+
+    err := awsClient.changeAndWaitResourceRecordSet(p.input)
+    if err != nil && err.Error() != p.expectedError.Error() {
+      t.Errorf("unexpected error (%d): expected error %v, actual error %v", idx, p.expectedError, err)
+    }
+  }
+}
