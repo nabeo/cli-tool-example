@@ -323,16 +323,23 @@ func TestCreateAResourceRecordSet(t *testing.T) {
 
 func TestDeleteAResourceRecordSet(t *testing.T) {
   patterns := []struct{
-    ip net.IP
-    hostname string
+    inputRR *route53.ResourceRecordSet
     hostedZoneID string
 
     expectedError error
   }{
     {
-      ip: net.ParseIP("10.0.5.10"),
-      hostname: "host.example.com",
       hostedZoneID: "ABC123",
+      inputRR: &route53.ResourceRecordSet{
+        Name: aws.String("host.example.com."),
+        ResourceRecords: []*route53.ResourceRecord{
+          {
+            Value: aws.String("10.0.5.10"),
+          },
+        },
+        TTL: aws.Int64(600),
+        Type: aws.String(route53.RRTypeA),
+      },
       expectedError: nil,
     },
   }
@@ -348,16 +355,7 @@ func TestDeleteAResourceRecordSet(t *testing.T) {
             Changes: []*route53.Change{
               {
                 Action: aws.String(route53.ChangeActionDelete),
-                ResourceRecordSet: &route53.ResourceRecordSet{
-                  Name: aws.String(p.hostname),
-                  ResourceRecords: []*route53.ResourceRecord{
-                    {
-                      Value: aws.String(p.ip.String()),
-                    },
-                  },
-                  TTL:  aws.Int64(600),
-                  Type: aws.String(route53.RRTypeA),
-                },
+                ResourceRecordSet: p.inputRR,
               },
             },
           },
@@ -377,7 +375,7 @@ func TestDeleteAResourceRecordSet(t *testing.T) {
         },
       },
     }
-    err := awsClient.deleteAResourceRecordSet(p.ip, p.hostname, p.hostedZoneID)
+    err := awsClient.deleteAResourceRecordSet(p.inputRR, p.hostedZoneID)
     if err != nil && err.Error() != p.expectedError.Error() {
       t.Errorf("unexpected error (%d): expected error %v, actual error %v", idx, p.expectedError, err)
     }
@@ -487,7 +485,7 @@ func TestDeletePtrResourceRecordSet(t *testing.T) {
         },
         NetworkCIDR: "192.168.0.0/16",
         HostedZoneID: "EFG456",
-        HostedZoneName: "10.in-addr.arpa.",
+        HostedZoneName: "168.192.in-addr.arpa.",
       },
     },
   }
@@ -495,13 +493,18 @@ func TestDeletePtrResourceRecordSet(t *testing.T) {
   patterns := []struct{
     ip net.IP
     hostname string
+    ptrHostname string
     hostedZoneID string
-
+    reverseHostedZoneName string
+    reverseHostedZoneID string
     expectedError error
   }{
     {
       ip: net.ParseIP("10.0.5.10"),
       hostname: "host.example.com",
+      ptrHostname: "10.5.0.10.in-addr.arpa.",
+      reverseHostedZoneName: "10.in-addr.arpa.",
+      reverseHostedZoneID: "ABC123",
       expectedError: nil,
     },
   }
@@ -509,6 +512,44 @@ func TestDeletePtrResourceRecordSet(t *testing.T) {
     awsClient := &AWSClientImpl{
       r53: &DummyRoute53Client{
         t: t,
+
+        listHostedZonesByNameInput: &route53.ListHostedZonesByNameInput{
+          DNSName: aws.String(p.reverseHostedZoneName),
+          MaxItems: aws.String("1"),
+        },
+        listHostedZonesByNameOutput: &route53.ListHostedZonesByNameOutput{
+          HostedZones: []*route53.HostedZone{
+            &route53.HostedZone{
+              Name: aws.String(p.reverseHostedZoneName),
+              Id: aws.String(p.reverseHostedZoneID),
+            },
+          },
+          IsTruncated: aws.Bool(false),
+        },
+        listHostedZonesByNameError: nil,
+
+        listResourceRecordSetsInput: &route53.ListResourceRecordSetsInput{
+          HostedZoneId: aws.String(p.reverseHostedZoneID),
+          MaxItems: aws.String("1"),
+          StartRecordName: aws.String(p.ptrHostname),
+        },
+        listResourceRecordSetsOutput: &route53.ListResourceRecordSetsOutput{
+          IsTruncated: aws.Bool(false),
+          MaxItems: aws.String("1"),
+          ResourceRecordSets: []*route53.ResourceRecordSet{
+            {
+              Name: aws.String(p.ptrHostname),
+              ResourceRecords: []*route53.ResourceRecord{
+                {
+                  Value: aws.String(p.hostname),
+                },
+              },
+              TTL: aws.Int64(600),
+              Type: aws.String(route53.RRTypePtr),
+            },
+          },
+        },
+        listResourceRecordSetsError: nil,
 
         changeResourceRecordSetsInput: &route53.ChangeResourceRecordSetsInput{
           HostedZoneId: aws.String("ABC123"),
@@ -545,7 +586,7 @@ func TestDeletePtrResourceRecordSet(t *testing.T) {
         },
       },
     }
-    err := awsClient.deletePtrResourceRecordSet(p.ip, p.hostname, rInfos)
+    err := awsClient.deletePtrResourceRecordSet(p.ip, rInfos)
     if err != nil && err.Error() != p.expectedError.Error() {
       t.Errorf("unexpected error (%d): expected error %v, actual error %v", idx, p.expectedError, err)
     }
@@ -617,16 +658,23 @@ func TestAddCnameResourceRecordSet(t *testing.T) {
 
 func TestRemoveCnameResourceRecordSet(t *testing.T) {
   patterns := []struct{
-    hostname string
-    cnameHostname string
     hostedZoneID string
+    inputRR *route53.ResourceRecordSet
 
     expectedError error
   }{
     {
-      hostname: "www.example.com",
-      cnameHostname: "cname.example.com",
       hostedZoneID: "ABC123",
+      inputRR: &route53.ResourceRecordSet{
+        Name: aws.String("www.example.com."),
+        ResourceRecords: []*route53.ResourceRecord{
+          {
+            Value: aws.String("cname.example.com"),
+          },
+        },
+        TTL: aws.Int64(600),
+        Type: aws.String(route53.RRTypeCname),
+      },
       expectedError: nil,
     },
   }
@@ -642,16 +690,7 @@ func TestRemoveCnameResourceRecordSet(t *testing.T) {
             Changes: []*route53.Change{
               {
                 Action: aws.String(route53.ChangeActionDelete),
-                ResourceRecordSet: &route53.ResourceRecordSet{
-                  Name: aws.String(p.hostname),
-                  ResourceRecords: []*route53.ResourceRecord{
-                    {
-                      Value: aws.String(p.cnameHostname),
-                    },
-                  },
-                  TTL: aws.Int64(600),
-                  Type: aws.String(route53.RRTypeCname),
-                },
+                ResourceRecordSet: p.inputRR,
               },
             },
           },
@@ -671,7 +710,7 @@ func TestRemoveCnameResourceRecordSet(t *testing.T) {
         },
       },
     }
-    err := awsClient.RemoveCnameResourceRecordSet(p.hostname, p.cnameHostname, p.hostedZoneID)
+    err := awsClient.RemoveCnameResourceRecordSet(p.inputRR, p.hostedZoneID)
     if err != nil && err.Error() != p.expectedError.Error() {
       t.Errorf("unexpected error (%d): expected error %v, actual error %v", idx, p.expectedError, err)
     }

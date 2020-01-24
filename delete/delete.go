@@ -66,12 +66,12 @@ func doDelete(c *cli.Context) (err error){
   switch *rr.Type {
   case "A":
     ip := net.ParseIP(*rr.ResourceRecords[0].Value)
-    err = awsClient.RemoveAResourceRecordSet(ip, data.hostname, data.zoneName, rInfos)
+    err = awsClient.RemoveAResourceRecordSet(&rr, ip, data.hostname, data.zoneName, rInfos)
     if err != nil {
       return err
     }
   case "CNAME":
-    err = awsClient.RemoveCnameResourceRecordSet(data.hostname, *rr.ResourceRecords[0].Value, data.zoneName)
+    err = awsClient.RemoveCnameResourceRecordSet(&rr, data.zoneName)
     if err != nil {
       return err
     }

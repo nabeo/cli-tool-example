@@ -153,7 +153,11 @@ func (client *AWSClientImpl) AddAResourceRecordSet(ip net.IP, hostname string, h
 
   err = client.createPtrResourceRecordSet(ip, hostname, rInfos)
   if err != nil {
-    rolebackErr := client.deleteAResourceRecordSet(ip, hostname, hostedZoneID)
+    rr, e := client.GetResourceRecordSetByName(ip.String(), hostedZoneID)
+    if e != nil {
+      return e
+    }
+    rolebackErr := client.deleteAResourceRecordSet(&rr, hostedZoneID)
     if rolebackErr != nil {
       return rolebackErr
     }
@@ -164,13 +168,13 @@ func (client *AWSClientImpl) AddAResourceRecordSet(ip net.IP, hostname string, h
 }
 
 // RemoveAResourceRecordSet ...
-func (client *AWSClientImpl) RemoveAResourceRecordSet(ip net.IP, hostname string, hostedZoneID string, rInfos ReverseHostedZoneInfos) (err error) {
-  err = client.deleteAResourceRecordSet(ip, hostname, hostedZoneID)
+func (client *AWSClientImpl) RemoveAResourceRecordSet(rrset *route53.ResourceRecordSet, ip net.IP, hostname string, hostedZoneID string, rInfos ReverseHostedZoneInfos) (err error) {
+  err = client.deleteAResourceRecordSet(rrset, hostedZoneID)
   if err != nil {
     return err
   }
 
-  err = client.deletePtrResourceRecordSet(ip, hostname, rInfos)
+  err = client.deletePtrResourceRecordSet(ip, rInfos)
   if err != nil {
     rolebackErr := client.createAResourceRecordSet(ip, hostname, hostedZoneID)
     if rolebackErr != nil {
@@ -216,36 +220,19 @@ func (client *AWSClientImpl) AddCnameResourceRecordSet(hostname string, cnameHos
 }
 
 // RemoveCnameResourceRecordSet ...
-func (client *AWSClientImpl) RemoveCnameResourceRecordSet(hostname string, cnameHostname string, hostedZoneID string) (err error) {
+func (client *AWSClientImpl) RemoveCnameResourceRecordSet(rrset *route53.ResourceRecordSet, hostedZoneID string) (err error) {
   input := &route53.ChangeResourceRecordSetsInput{
     HostedZoneId: aws.String(hostedZoneID),
     ChangeBatch: &route53.ChangeBatch{
       Changes: []*route53.Change{
         {
           Action: aws.String(route53.ChangeActionDelete),
-          ResourceRecordSet: &route53.ResourceRecordSet{
-            Name: aws.String(hostname),
-            ResourceRecords: []*route53.ResourceRecord{
-              {
-                Value: aws.String(cnameHostname),
-              },
-            },
-            TTL:  aws.Int64(600),
-            Type: aws.String(route53.RRTypeCname),
-          },
+          ResourceRecordSet: rrset,
         },
       },
     },
   }
-  resp, err := client.r53.ChangeResourceRecordSets(input)
-  if err != nil {
-    return err
-  }
-  err = client.r53.WaitUntilResourceRecordSetsChanged(&route53.GetChangeInput{Id: resp.ChangeInfo.Id})
-  if err != nil {
-    return err
-  }
-  return nil
+  return client.changeAndWaitResourceRecordSet(input)
 }
 
 func (client *AWSClientImpl) createAResourceRecordSet(ip net.IP, hostname string, hostedZoneID string) (err error) {
@@ -340,73 +327,43 @@ func (client *AWSClientImpl) createPtrResourceRecordSet(ip net.IP, hostname stri
   return nil
 }
 
-func (client *AWSClientImpl) deleteAResourceRecordSet(ip net.IP, hostname string, hostedZoneID string) (err error) {
+func (client *AWSClientImpl) deleteAResourceRecordSet(rrset *route53.ResourceRecordSet, hostedZoneID string) (err error) {
   input := &route53.ChangeResourceRecordSetsInput{
     HostedZoneId: aws.String(hostedZoneID),
     ChangeBatch: &route53.ChangeBatch{
       Changes: []*route53.Change{
         {
           Action: aws.String(route53.ChangeActionDelete),
-          ResourceRecordSet: &route53.ResourceRecordSet{
-            Name: aws.String(hostname),
-            ResourceRecords: []*route53.ResourceRecord{
-              {
-                Value: aws.String(ip.String()),
-              },
-            },
-            TTL: aws.Int64(600),
-            Type: aws.String(route53.RRTypeA),
-          },
+          ResourceRecordSet: rrset,
         },
       },
     },
   }
-  resp, err := client.r53.ChangeResourceRecordSets(input)
-  if err != nil {
-    return err
-  }
-  err = client.r53.WaitUntilResourceRecordSetsChanged(&route53.GetChangeInput{Id: resp.ChangeInfo.Id})
-  if err != nil {
-    return err
-  }
-  return nil
+  return client.changeAndWaitResourceRecordSet(input)
 }
 
-func (client *AWSClientImpl) deletePtrResourceRecordSet(ip net.IP, hostname string, rInfos ReverseHostedZoneInfos) (err error) {
+func (client *AWSClientImpl) deletePtrResourceRecordSet(ip net.IP, rInfos ReverseHostedZoneInfos) (err error) {
   reverseHostedZoneID, err := GetReverseHostedZoneID(ip, rInfos)
   if err != nil {
     return err
   }
   ptrRecord := GenerateReverseRecord(ip)
-  inputForPTR := &route53.ChangeResourceRecordSetsInput{
+  rr, err := client.GetResourceRecordSetByName(ptrRecord, reverseHostedZoneID)
+  if err != nil {
+    return err
+  }
+  input := &route53.ChangeResourceRecordSetsInput{
     HostedZoneId: aws.String(reverseHostedZoneID),
     ChangeBatch: &route53.ChangeBatch{
       Changes: []*route53.Change{
         {
           Action: aws.String(route53.ChangeActionDelete),
-          ResourceRecordSet: &route53.ResourceRecordSet{
-            Name: aws.String(ptrRecord),
-            ResourceRecords: []*route53.ResourceRecord{
-              {
-                Value: aws.String(hostname),
-              },
-            },
-            TTL: aws.Int64(600),
-            Type: aws.String(route53.RRTypePtr),
-          },
+          ResourceRecordSet: &rr,
         },
       },
     },
   }
-  resp, err := client.r53.ChangeResourceRecordSets(inputForPTR)
-  if err != nil {
-    return err
-  }
-  err = client.r53.WaitUntilResourceRecordSetsChanged(&route53.GetChangeInput{Id: resp.ChangeInfo.Id})
-  if err != nil {
-    return err
-  }
-  return nil
+  return client.changeAndWaitResourceRecordSet(input)
 }
 
 // GetResourceRecordSetByName ...
