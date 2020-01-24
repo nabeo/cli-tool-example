@@ -696,7 +696,6 @@ func TestGetResourceRecordSetByName(t *testing.T) {
 
       expectedRR: route53.ResourceRecordSet{
         Name: aws.String("www.example.com."),
-        Region: aws.String(route53.ResourceRecordSetRegionApNortheast1),
         ResourceRecords: []*route53.ResourceRecord{
           {
             Value: aws.String("10.0.1.15"),
@@ -718,7 +717,6 @@ func TestGetResourceRecordSetByName(t *testing.T) {
         ResourceRecordSets: []*route53.ResourceRecordSet{
           {
             Name: aws.String("www.example.com."),
-            Region: aws.String(route53.ResourceRecordSetRegionApNortheast1),
             ResourceRecords: []*route53.ResourceRecord{
               {
                 Value: aws.String("10.0.1.15"),
@@ -737,7 +735,6 @@ func TestGetResourceRecordSetByName(t *testing.T) {
 
       expectedRR: route53.ResourceRecordSet{
         Name: aws.String("www.example.com."),
-        Region: aws.String(route53.ResourceRecordSetRegionApNortheast1),
         ResourceRecords: []*route53.ResourceRecord{
           {
             Value: aws.String("cname.example.com."),
@@ -759,7 +756,6 @@ func TestGetResourceRecordSetByName(t *testing.T) {
         ResourceRecordSets: []*route53.ResourceRecordSet{
           {
             Name: aws.String("www.example.com."),
-            Region: aws.String(route53.ResourceRecordSetRegionApNortheast1),
             ResourceRecords: []*route53.ResourceRecord{
               {
                 Value: aws.String("cname.example.com."),
@@ -790,7 +786,6 @@ func TestGetResourceRecordSetByName(t *testing.T) {
         ResourceRecordSets: []*route53.ResourceRecordSet{
           {
             Name: aws.String("www.example.com."),
-            Region: aws.String(route53.ResourceRecordSetRegionApNortheast1),
             ResourceRecords: []*route53.ResourceRecord{
               {
                 Value: aws.String("cname.example.com."),
@@ -821,7 +816,6 @@ func TestGetResourceRecordSetByName(t *testing.T) {
         ResourceRecordSets: []*route53.ResourceRecordSet{
           {
             Name: aws.String("invalid.example.com."),
-            Region: aws.String(route53.ResourceRecordSetRegionApNortheast1),
             ResourceRecords: []*route53.ResourceRecord{
               {
                 Value: aws.String("cname.example.com."),
